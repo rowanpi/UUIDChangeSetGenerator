@@ -63,7 +63,7 @@ public class UUIDChangesetGenerator {
     public static final String SET_UUID_VALUES 
       = "    <sql>\n" + 
         "      UPDATE ["+TABLENAME+"] \n" + 
-        "      SET id = GENERATEBINARYUUID();\n" + 
+        "      SET ["+FIELDTOUPDATE+"] = GENERATEBINARYUUID();\n" + 
         "    </sql>";
 
     public static final String UPDATE_FIELD_WITH_ANOTHER_FIELD 
@@ -78,7 +78,7 @@ public class UUIDChangesetGenerator {
           "        LEFT JOIN ["+TABLENAME+"] AS joinTable ON (updateTable.["+PRIMARYKEYNAME_TEMP+"] = joinTable.["+PRIMARYKEYNAME_TEMP+"])\n" + 
           "      SET \n" + 
           "        updateTable.["+PRIMARYKEYNAME+"] = joinTable.["+PRIMARYKEYNAME+"]\n" + 
-          "      WHERE joinTable.["+PRIMARYKEYNAME+"] IS NOT null\n" + 
+          "      WHERE joinTable.["+PRIMARYKEYNAME+"] IS NOT null \n" + 
           "    </sql>";
 
     public static final String SET_FOREIGN_KEY_REF_VALUE 
@@ -87,7 +87,7 @@ public class UUIDChangesetGenerator {
         "        LEFT JOIN ["+JOINEDTABLENAME+"] AS joinedTable ON (updateTable.["+UPDATETABLENAMEFIELDNAME_TEMP+"] = joinedTable.["+JOINEDTABLENAMEFIELDNAME_TEMP+"])\n" + 
         "      SET \n" + 
         "         updateTable.["+UPDATETABLENAMEFIELDNAME+"] = joinedTable.["+JOINEDTABLENAMEFIELDNAME+"] \n" + 
-        "      WHERE joinedTable.["+JOINEDTABLENAMEFIELDNAME+"] IS NOT null\\n" + 
+        "      WHERE joinedTable.["+JOINEDTABLENAMEFIELDNAME+"] IS NOT null \n" + 
         "    </sql>";
 
     public static final String REMOVE_AUTO_INCREMENT
@@ -127,6 +127,15 @@ public class UUIDChangesetGenerator {
         "            newDataType=\"BINARY(16)\"\n" + 
         "            schemaName=\"bsis\"\n" + 
         "            tableName=\"["+TABLENAME+"]\"/>";
+    
+    public static final String DELETE_ORPHANED_AUDIT_RECORDS 
+      =   "    <!-- Delete orphaned rows from Audit table. These values uuid's cannot be found since the rows were deleted in the original table-->\n" + 
+          "    <sql>\n" +
+          "      DELETE ["+TABLENAME_AUD+"]\n" + 
+          "      FROM ["+TABLENAME_AUD+"]\n" + 
+          "        LEFT JOIN ["+TABLENAME+"] AS joinTable ON (["+TABLENAME_AUD+"].["+PRIMARYKEYNAME+"] = joinTable.["+PRIMARYKEYNAME+"])\n" + 
+          "      WHERE joinTable.["+PRIMARYKEYNAME+"] IS null\n" +
+          "    </sql>";
   
   }
   private static String userName = "root";
@@ -248,9 +257,9 @@ public class UUIDChangesetGenerator {
       for(ForeignKeyReference ref : refs) {
         System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(ref.tableName, ref.columnName)));
       }
-      
-      System.out.println();
+            
       for(ForeignKeyReference ref : refs) {
+        System.out.println();
         System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(ref.tableName, ref.columnName, true)));
       }
       System.out.println();
@@ -258,6 +267,7 @@ public class UUIDChangesetGenerator {
       //set uuid values###########################################
       map = new HashMap<String, String>();
       putTableNameIntoMap(tableName, false, map);
+      map.put(FIELDTOUPDATE, pkName);
       System.out.println(matchAndReplace(TEMPLATE.SET_UUID_VALUES, map));
       System.out.println();
       //##########################################################
@@ -291,6 +301,13 @@ public class UUIDChangesetGenerator {
 
 
 
+      //set aud value to new uuid value##########################
+      System.out.println();
+      System.out.println(matchAndReplace(TEMPLATE.DELETE_ORPHANED_AUDIT_RECORDS, createMapForDeletingOrphanedRows(tableName, pkName)));
+      //#########################################################
+
+
+
       //update all forieng key references with new uuid##########
       System.out.println();
       for(ForeignKeyReference ref : refs) {
@@ -306,6 +323,7 @@ public class UUIDChangesetGenerator {
 
       //Drop temporary columns###################################
       System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapForDroppingPK(tableName, false, pkName)));
+      System.out.println();
       System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapForDroppingPK(tableName, true, pkName)));
 
       System.out.println();
@@ -364,6 +382,16 @@ public class UUIDChangesetGenerator {
     return map;
   }
 
+  private static Map<String,String> createMapForDeletingOrphanedRows(
+      String tableName, 
+      String pkName) {
+    Map<String,String> map = new HashMap<String, String>();
+    map.put(TABLENAME, tableName);
+    map.put(TABLENAME_AUD, tableName +"_AUD");
+    map.put(PRIMARYKEYNAME, pkName);
+    return map;
+  }
+
   private static Map<String,String> createMapForUpdateAudTableWithNewUUIDIDValue(
       String tableName, 
       String pkName) {
@@ -374,7 +402,7 @@ public class UUIDChangesetGenerator {
     map.put(PRIMARYKEYNAME_TEMP, pkName +"_temp");
     return map;
   }
-
+  
   private static Map<String, String> createMapForDroppingPK(String tableName, boolean audTable, String pkName) {
     Map<String, String> map;
     map = new HashMap<String, String>();
