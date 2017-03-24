@@ -159,33 +159,19 @@ public class UUIDChangesetGenerator {
       }
       
       System.out.println();
-      //rename primary key column
-/*      System.out.println(matchAndReplace(TEMPLATE.RENAME_COLUMN, createMapForFieldRename(tableName, pkName)));
-      
-      System.out.println(matchAndReplace(TEMPLATE.RENAME_COLUMN, createMapForFieldRename(tableName, pkName, true)));
-      
-      System.out.println();
-      
-      //rename all FK columns
-      for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.RENAME_COLUMN, createMapForFieldRename(ref.tableName, ref.columnName)));
-        System.out.println(matchAndReplace(TEMPLATE.RENAME_COLUMN, createMapForFieldRename(ref.tableName, ref.columnName, true)));
-        
-        System.out.println();
-      }
-*/     
-      map = createMapForFieldAdd(tableName, pkName);
-      //add new uuid primary key
+
+      map = createMapForTempFieldAdd(tableName, pkName);
+      //add temp field for BIGINT id
       addAddColumnBasedOnMap(map);
 
-      map = createMapForFieldAdd(tableName, pkName, true);
-      //add new uuid primary key to AUD table
+      map = createMapForTempFieldAdd(tableName, pkName, true);
+      //add temp field for BIGINT id
       addAddColumnBasedOnMap(map);
 
       //add temporary fields for foreign keys
       String oldTableName = null;
       for(ForeignKeyReference ref : refs) {
-        map = createMapForFieldAdd(ref.tableName, ref.columnName, false);
+        map = createMapForTempFieldAdd(ref.tableName, ref.columnName, false);
         if(ref.tableName != null && !ref.tableName.equals(oldTableName)) {
           if(oldTableName != null) {
             System.out.println(TEMPLATE.ADD_NEW_COLUMN_CLOSE);
@@ -203,7 +189,7 @@ public class UUIDChangesetGenerator {
 
       oldTableName = null;
       for(ForeignKeyReference ref : refs) {
-        map = createMapForFieldAdd(ref.tableName, ref.columnName, true);
+        map = createMapForTempFieldAdd(ref.tableName, ref.columnName, true);
         if(ref.tableName != null && !ref.tableName.equals(oldTableName)) {
           if(oldTableName != null) {
             System.out.println(TEMPLATE.ADD_NEW_COLUMN_CLOSE);
@@ -463,7 +449,7 @@ public class UUIDChangesetGenerator {
     return createMapForAddingVirtualColumn(tableName, fieldName, false);
   }
   
-  private static Map<String,String> createMapForFieldAdd(String tableName, String fieldName, boolean audTable) {
+  private static Map<String,String> createMapForTempFieldAdd(String tableName, String fieldName, boolean audTable) {
     Map<String,String> map = new HashMap<String, String>();
     putTableNameIntoMap(tableName, audTable, map);
     map.put(NEWCOLUMNNAME, fieldName +"_temp");
@@ -471,8 +457,8 @@ public class UUIDChangesetGenerator {
     return map;
   }
   
-  private static Map<String,String> createMapForFieldAdd(String tableName, String fieldName) {
-    return createMapForFieldAdd(tableName, fieldName, false);
+  private static Map<String,String> createMapForTempFieldAdd(String tableName, String fieldName) {
+    return createMapForTempFieldAdd(tableName, fieldName, false);
   }
 
   private static Map<String,String> createMapForFieldRename(String tableName, String fieldName) {
