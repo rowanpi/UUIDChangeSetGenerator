@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 
 public class UUIDChangesetGenerator {
 
+  private static final String COLUMNNAME = "COLUMNNAME";
   private static final String NEWCOLUMNNAME = "NEWCOLUMNNAME";
   private static final String OLDCOLUMNNAME = "OLDCOLUMNNAME";
   private static final String CONSTRAINTNAME = "CONSTRAINTNAME";
@@ -31,7 +32,9 @@ public class UUIDChangesetGenerator {
   private static final String BASECOLUMNTABLENAME = "BASECOLUMNTABLENAME";
   private static final String PRIMARYKEYNAME_TEMP = "PRIMARYKEYNAME_TEMP";
   private static final String TABLENAME_AUD = "TABLENAME_AUD";
-
+  private static final String FIELDTOUPDATE = "FIELDTOUPDATE";
+  private static final String UPDATEFIELDTOTHISFIELD = "UPDATEFIELDTO";
+  
   public static class TEMPLATE {
     public static final String DROP_FKR 
       = "    <dropForeignKeyConstraint baseTableName=\"["+TABLENAME+"]\" constraintName=\"["+CONSTRAINTNAME+"]\"/>";
@@ -42,10 +45,9 @@ public class UUIDChangesetGenerator {
     public static final String ADD_NEW_COLUMN_OPEN 
       = "    <addColumn tableName=\"["+TABLENAME+"]\">"; 
     public static final String ADD_NEW_COLUMN_LINE 
-      = "      <column name=\"["+NEWCOLUMNNAME+"]\" type=\"BINARY(16)\" afterColumn=\"["+AFTERCOLUMNNAME+"]\"/>"; 
+      = "      <column name=\"["+NEWCOLUMNNAME+"]\" type=\"BIGINT\" afterColumn=\"["+AFTERCOLUMNNAME+"]\"/>"; 
     public static final String ADD_NEW_COLUMN_CLOSE    
       = "    </addColumn>";
-
 
     public static final String ADD_VIRTUAL_COLUMN
       = "    <sql dbms=\"mysql\">\n" + 
@@ -63,6 +65,12 @@ public class UUIDChangesetGenerator {
         "      UPDATE ["+TABLENAME+"] \n" + 
         "      SET id = GENERATEBINARYUUID();\n" + 
         "    </sql>";
+
+    public static final String UPDATE_FIELD_WITH_ANOTHER_FIELD 
+      = "    <sql>\n" + 
+          "      UPDATE ["+TABLENAME+"] \n" + 
+          "      SET ["+FIELDTOUPDATE+"] = ["+UPDATEFIELDTOTHISFIELD+"];\n" + 
+          "    </sql>";
 
     public static final String UPDATE_AUD_TABLE_WITH_NEW_UUID
       =   "    <sql>\n" + 
@@ -111,6 +119,13 @@ public class UUIDChangesetGenerator {
          "            constraintName=\"["+CONSTRAINTNAME+"]\"\n" + 
          "            referencedColumnNames=\"["+PRIMARYKEYNAME+"]\"\n" + 
          "            referencedTableName=\"["+TABLENAME+"]\"/>";
+    
+    public static final String MODIFY_DATA_TYPE_TO_BINARY_16 
+      = "    <modifyDataType columnName=\"["+COLUMNNAME+"]\"\n" + 
+        "            newDataType=\"BINARY(16)\"\n" + 
+        "            schemaName=\"bsis\"\n" + 
+        "            tableName=\"["+TABLENAME+"]\"/>";
+  
   }
   private static String userName = "root";
   private static String password = "root";
@@ -134,7 +149,7 @@ public class UUIDChangesetGenerator {
       
       System.out.println();
       //rename primary key column
-      System.out.println(matchAndReplace(TEMPLATE.RENAME_COLUMN, createMapForFieldRename(tableName, pkName)));
+/*      System.out.println(matchAndReplace(TEMPLATE.RENAME_COLUMN, createMapForFieldRename(tableName, pkName)));
       
       System.out.println(matchAndReplace(TEMPLATE.RENAME_COLUMN, createMapForFieldRename(tableName, pkName, true)));
       
@@ -147,24 +162,16 @@ public class UUIDChangesetGenerator {
         
         System.out.println();
       }
-      
+*/     
       map = createMapForFieldAdd(tableName, pkName);
       //add new uuid primary key
       addAddColumnBasedOnMap(map);
 
-      //add virtual column
-      System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(tableName, pkName)));
-      System.out.println();
-
       map = createMapForFieldAdd(tableName, pkName, true);
       //add new uuid primary key to AUD table
       addAddColumnBasedOnMap(map);
-      
-      //add virtual column
-      System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(tableName, pkName, true)));
-      System.out.println();
-      
-      //add new uuid fields for foreign keys
+
+      //add temporary fields for foreign keys
       String oldTableName = null;
       for(ForeignKeyReference ref : refs) {
         map = createMapForFieldAdd(ref.tableName, ref.columnName, false);
@@ -183,11 +190,6 @@ public class UUIDChangesetGenerator {
         System.out.println();
       }
 
-      for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(ref.tableName, ref.columnName)));
-        System.out.println();
-      }
-      
       oldTableName = null;
       for(ForeignKeyReference ref : refs) {
         map = createMapForFieldAdd(ref.tableName, ref.columnName, true);
@@ -206,18 +208,88 @@ public class UUIDChangesetGenerator {
         System.out.println();
       }
 
+      //update temp fields with original keys######################
+      System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(tableName, pkName)));
+      System.out.println();
+      
+      System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(tableName, pkName, true)));
+      System.out.println();
+
       for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(ref.tableName, ref.columnName, true)));
+        System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(ref.tableName, ref.columnName, true)));
         System.out.println();
       }
+
+      for(ForeignKeyReference ref : refs) {
+        System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(ref.tableName, ref.columnName)));
+        System.out.println();
+      }
+      //##########################################################
+
+      //Remove auto increment on old primary key
+      System.out.println(matchAndReplace(TEMPLATE.REMOVE_AUTO_INCREMENT, createMapForAutoIncrementAndPrimaryKeyUpdates(tableName, pkName)));
+      System.out.println();
       
+      System.out.println(matchAndReplace(TEMPLATE.DROP_AND_ADD_NEW_PRIMARY_KEY, createMapForAutoIncrementAndPrimaryKeyUpdates(tableName, pkName)));
+      System.out.println();
+      //##########################################################
+
+
+
+      //modify id type to binary 16###########################################
+      System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(tableName, pkName)));
+      System.out.println();
+
+      System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(tableName, pkName, true)));
+      System.out.println();
+      
+      for(ForeignKeyReference ref : refs) {
+        System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(ref.tableName, ref.columnName)));
+      }
+      
+      System.out.println();
+      for(ForeignKeyReference ref : refs) {
+        System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(ref.tableName, ref.columnName, true)));
+      }
+      System.out.println();
+
+      //set uuid values###########################################
       map = new HashMap<String, String>();
       putTableNameIntoMap(tableName, false, map);
       System.out.println(matchAndReplace(TEMPLATE.SET_UUID_VALUES, map));
       System.out.println();
+      //##########################################################
 
+
+
+
+      //add virtual columns ######################################
+      System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(tableName, pkName)));
+      System.out.println();
+
+      System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(tableName, pkName, true)));
+      System.out.println();
+
+      for(ForeignKeyReference ref : refs) {
+        System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(ref.tableName, ref.columnName, true)));
+        System.out.println();
+      }
+
+      for(ForeignKeyReference ref : refs) {
+        System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(ref.tableName, ref.columnName)));
+        System.out.println();
+      }
+      //#########################################################
+
+
+
+      //set aud value to new uuid value##########################
       System.out.println(matchAndReplace(TEMPLATE.UPDATE_AUD_TABLE_WITH_NEW_UUID, createMapForUpdateAudTableWithNewUUIDIDValue(tableName, pkName)));
-      
+      //#########################################################
+
+
+
+      //update all forieng key references with new uuid##########
       System.out.println();
       for(ForeignKeyReference ref : refs) {
         System.out.println(matchAndReplace(TEMPLATE.SET_FOREIGN_KEY_REF_VALUE, createMapForeignKeyRefUpdate(tableName, ref, pkName)));
@@ -228,14 +300,9 @@ public class UUIDChangesetGenerator {
         System.out.println(matchAndReplace(TEMPLATE.SET_FOREIGN_KEY_REF_VALUE, createMapForeignKeyRefUpdate(tableName, ref, pkName, true)));
         System.out.println();
       }
+      //#########################################################
 
-      //Remove auto increment on old primary key
-      System.out.println(matchAndReplace(TEMPLATE.REMOVE_AUTO_INCREMENT, createMapForAutoIncrementAndPrimaryKeyUpdates(tableName, pkName+"_temp")));
-      System.out.println();
-      
-      System.out.println(matchAndReplace(TEMPLATE.DROP_AND_ADD_NEW_PRIMARY_KEY, createMapForAutoIncrementAndPrimaryKeyUpdates(tableName, pkName)));
-      System.out.println();
-
+      //Drop temporary columns###################################
       System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapForDroppingPK(tableName, false, pkName)));
       System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapForDroppingPK(tableName, true, pkName)));
 
@@ -249,12 +316,36 @@ public class UUIDChangesetGenerator {
         System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapDroppingColumn(ref, true)));
         System.out.println();
       }
-      
+      //#########################################################
+
       for(ForeignKeyReference ref : refs) {
         System.out.println(matchAndReplace(TEMPLATE.ADD_FOREIGN_KEY_CONSTRAINT, createMapForAddForeignConstraint(tableName, pkName, ref)));
         System.out.println();
       }
     }
+  }
+  
+  private static Map<String,String> createMapForColumnModify(String tableName, String fieldName, boolean audTable) {
+    Map<String,String> map = new HashMap<String, String>();
+    putTableNameIntoMap(tableName, audTable, map);
+    map.put(COLUMNNAME, fieldName);
+    return map;
+  }
+  
+  private static Map<String,String> createMapForColumnModify(String tableName, String fieldName) {
+    return createMapForColumnModify(tableName, fieldName, false);
+  }
+
+  private static Map<String,String> createMapForUpdateFieldWithAnotherField(String tableName, String fieldName, boolean audTable) {
+    Map<String,String> map = new HashMap<String, String>();
+    putTableNameIntoMap(tableName, audTable, map);
+    map.put(FIELDTOUPDATE, fieldName +"_temp");
+    map.put(UPDATEFIELDTOTHISFIELD, fieldName);
+    return map;
+  }
+
+  private static Map<String,String> createMapForUpdateFieldWithAnotherField(String tableName, String fieldName) {
+    return createMapForUpdateFieldWithAnotherField(tableName, fieldName, false);
   }
 
   private static Map<String,String> createMapForAddForeignConstraint(
@@ -345,8 +436,8 @@ public class UUIDChangesetGenerator {
   private static Map<String,String> createMapForFieldAdd(String tableName, String fieldName, boolean audTable) {
     Map<String,String> map = new HashMap<String, String>();
     putTableNameIntoMap(tableName, audTable, map);
-    map.put(NEWCOLUMNNAME, fieldName);
-    map.put(AFTERCOLUMNNAME, fieldName+"_temp");
+    map.put(NEWCOLUMNNAME, fieldName +"_temp");
+    map.put(AFTERCOLUMNNAME, fieldName);
     return map;
   }
   
