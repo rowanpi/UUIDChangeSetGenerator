@@ -78,6 +78,7 @@ public class UUIDChangesetGenerator {
           "        LEFT JOIN ["+TABLENAME+"] AS joinTable ON (updateTable.["+PRIMARYKEYNAME_TEMP+"] = joinTable.["+PRIMARYKEYNAME_TEMP+"])\n" + 
           "      SET \n" + 
           "        updateTable.["+PRIMARYKEYNAME+"] = joinTable.["+PRIMARYKEYNAME+"]\n" + 
+          "      WHERE joinTable.["+PRIMARYKEYNAME+"] IS NOT null\n" + 
           "    </sql>";
 
     public static final String SET_FOREIGN_KEY_REF_VALUE 
@@ -85,7 +86,8 @@ public class UUIDChangesetGenerator {
         "      UPDATE ["+TABLENAME+"] AS updateTable\n" + 
         "        LEFT JOIN ["+JOINEDTABLENAME+"] AS joinedTable ON (updateTable.["+UPDATETABLENAMEFIELDNAME_TEMP+"] = joinedTable.["+JOINEDTABLENAMEFIELDNAME_TEMP+"])\n" + 
         "      SET \n" + 
-        "         updateTable.["+UPDATETABLENAMEFIELDNAME+"] = joinedTable.["+JOINEDTABLENAMEFIELDNAME+"]\n" + 
+        "         updateTable.["+UPDATETABLENAMEFIELDNAME+"] = joinedTable.["+JOINEDTABLENAMEFIELDNAME+"] \n" + 
+        "      WHERE joinedTable.["+JOINEDTABLENAMEFIELDNAME+"] IS NOT null\\n" + 
         "    </sql>";
 
     public static final String REMOVE_AUTO_INCREMENT
