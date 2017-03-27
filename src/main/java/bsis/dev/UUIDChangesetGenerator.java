@@ -36,6 +36,15 @@ public class UUIDChangesetGenerator {
   private static final String UPDATEFIELDTOTHISFIELD = "UPDATEFIELDTO";
   
   public static class TEMPLATE {
+    public static final String PRE_CONDITION 
+      = "    <preConditions onFail=\"MARK_RAN\">\n" + 
+          "      <sqlCheck expectedResult=\"0\">\n" + 
+          "        <![CDATA[\n" + 
+          "          SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '[TABLENAME]' AND COLUMN_NAME = '[COLUMNNAME]' AND TABLE_SCHEMA = 'bsis' AND DATA_TYPE = 'BINARY';\n" + 
+          "        ]]>\n" + 
+          "       </sqlCheck>\n" + 
+          "    </preConditions>";
+    
     public static final String DROP_FKR 
       = "    <dropForeignKeyConstraint baseTableName=\"["+TABLENAME+"]\" constraintName=\"["+CONSTRAINTNAME+"]\"/>";
     
@@ -129,7 +138,7 @@ public class UUIDChangesetGenerator {
         "            tableName=\"["+TABLENAME+"]\"/>";
     
     public static final String DELETE_ORPHANED_AUDIT_RECORDS 
-      =   "    <!-- Delete orphaned rows from Audit table. These values uuid's cannot be found since the rows were deleted in the original table-->\n" + 
+      =   "    <!-- Delete orphaned rows from Audit table. These values uuids cannot be found since the rows were deleted in the original table-->\n" + 
           "    <sql>\n" +
           "      DELETE ["+TABLENAME_AUD+"]\n" + 
           "      FROM ["+TABLENAME_AUD+"]\n" + 
@@ -149,6 +158,9 @@ public class UUIDChangesetGenerator {
 
     String pkName = getPrimaryKeyName(tableName);
     if(pkName != null) {
+      
+      System.out.println(matchAndReplaceWithoutWarning(TEMPLATE.PRE_CONDITION, createMapWithTableAndFieldName(tableName, pkName)));
+      System.out.println();
       List<ForeignKeyReference> refs = getForeignKeyRefs(tableName, pkName);
 
       //drop all foreign key constraints
@@ -234,18 +246,18 @@ public class UUIDChangesetGenerator {
 
 
       //modify id type to binary 16###########################################
-      System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(tableName, pkName)));
+      System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapWithTableAndFieldName(tableName, pkName)));
       System.out.println();
 
       System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(tableName, pkName, true)));
       System.out.println();
       
       for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(ref.tableName, ref.columnName)));
+        System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapWithTableAndFieldName(ref.tableName, ref.columnName)));
       }
-            
+      System.out.println();
+    
       for(ForeignKeyReference ref : refs) {
-        System.out.println();
         System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(ref.tableName, ref.columnName, true)));
       }
       System.out.println();
@@ -338,7 +350,7 @@ public class UUIDChangesetGenerator {
     return map;
   }
   
-  private static Map<String,String> createMapForColumnModify(String tableName, String fieldName) {
+  private static Map<String,String> createMapWithTableAndFieldName(String tableName, String fieldName) {
     return createMapForColumnModify(tableName, fieldName, false);
   }
 
@@ -499,15 +511,21 @@ public class UUIDChangesetGenerator {
   }
 
   private static String matchAndReplace(String template, Map<String, String> keyVals) {
-    Set<String> keys = keyVals.keySet();
-    for(String key : keys) {
-      template = template.replace("[" + key + "]", keyVals.get(key));
-    }
+    template = matchAndReplaceWithoutWarning(template, keyVals);
     final Matcher matcher = pattern.matcher(template);
     
     if(matcher.find()){
       System.err.println("WARNING NOT ALL VARS HAVE BEEN REPLACED IN following template \n" + template);
     }
+    return template;
+  }
+  
+  private static String matchAndReplaceWithoutWarning(String template, Map<String, String> keyVals) {
+    Set<String> keys = keyVals.keySet();
+    for(String key : keys) {
+      template = template.replace("[" + key + "]", keyVals.get(key));
+    }
+
     return template;
   }
   
