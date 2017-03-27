@@ -35,16 +35,7 @@ public class UUIDChangesetGenerator {
   private static final String FIELDTOUPDATE = "FIELDTOUPDATE";
   private static final String UPDATEFIELDTOTHISFIELD = "UPDATEFIELDTO";
   
-  public static class TEMPLATE {
-    public static final String PRE_CONDITION 
-      = "    <preConditions onFail=\"MARK_RAN\">\n" + 
-          "      <sqlCheck expectedResult=\"0\">\n" + 
-          "        <![CDATA[\n" + 
-          "          SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '[TABLENAME]' AND COLUMN_NAME = '[COLUMNNAME]' AND TABLE_SCHEMA = 'bsis' AND DATA_TYPE = 'BINARY';\n" + 
-          "        ]]>\n" + 
-          "       </sqlCheck>\n" + 
-          "    </preConditions>";
-    
+  public static class TEMPLATE { 
     public static final String DROP_FKR 
       = "    <dropForeignKeyConstraint baseTableName=\"["+TABLENAME+"]\" constraintName=\"["+CONSTRAINTNAME+"]\"/>";
     
@@ -66,7 +57,7 @@ public class UUIDChangesetGenerator {
         "        HEX(SUBSTR(["+UUIDCOLUMNNAME+"],  7, 2)),\n" + 
         "        HEX(SUBSTR(["+UUIDCOLUMNNAME+"],  9, 2)),\n" + 
         "        HEX(SUBSTR(["+UUIDCOLUMNNAME+"], 11)) )))\n" + 
-        "      VIRTUAL AFTER ["+UUIDCOLUMNNAME+"]\n" + 
+        "      VIRTUAL AFTER ["+UUIDCOLUMNNAME+"];\n" + 
         "    </sql>";
 
     public static final String SET_UUID_VALUES 
@@ -85,18 +76,16 @@ public class UUIDChangesetGenerator {
       =   "    <sql>\n" + 
           "      UPDATE ["+TABLENAME_AUD+"] AS updateTable\n" + 
           "        LEFT JOIN ["+TABLENAME+"] AS joinTable ON (updateTable.["+PRIMARYKEYNAME_TEMP+"] = joinTable.["+PRIMARYKEYNAME_TEMP+"])\n" + 
-          "      SET \n" + 
-          "        updateTable.["+PRIMARYKEYNAME+"] = joinTable.["+PRIMARYKEYNAME+"]\n" + 
-          "      WHERE joinTable.["+PRIMARYKEYNAME+"] IS NOT null \n" + 
+          "      SET updateTable.["+PRIMARYKEYNAME+"] = joinTable.["+PRIMARYKEYNAME+"]\n" + 
+          "      WHERE joinTable.["+PRIMARYKEYNAME+"] IS NOT null; \n" + 
           "    </sql>";
 
     public static final String SET_FOREIGN_KEY_REF_VALUE 
       = "    <sql>\n" + 
         "      UPDATE ["+TABLENAME+"] AS updateTable\n" + 
         "        LEFT JOIN ["+JOINEDTABLENAME+"] AS joinedTable ON (updateTable.["+UPDATETABLENAMEFIELDNAME_TEMP+"] = joinedTable.["+JOINEDTABLENAMEFIELDNAME_TEMP+"])\n" + 
-        "      SET \n" + 
-        "         updateTable.["+UPDATETABLENAMEFIELDNAME+"] = joinedTable.["+JOINEDTABLENAMEFIELDNAME+"] \n" + 
-        "      WHERE joinedTable.["+JOINEDTABLENAMEFIELDNAME+"] IS NOT null \n" + 
+        "      SET updateTable.["+UPDATETABLENAMEFIELDNAME+"] = joinedTable.["+JOINEDTABLENAMEFIELDNAME+"] \n" + 
+        "      WHERE joinedTable.["+JOINEDTABLENAMEFIELDNAME+"] IS NOT null; \n" + 
         "    </sql>";
 
     public static final String REMOVE_AUTO_INCREMENT
@@ -104,24 +93,20 @@ public class UUIDChangesetGenerator {
           "    <modifyDataType\n" + 
           "            columnName=\"["+PRIMARYKEYNAME+"]\"\n" + 
           "            newDataType=\"BIGINT(20)\"\n" + 
-          "            schemaName=\"bsis\"\n" + 
           "            tableName=\"["+TABLENAME+"]\"/>";
     
     public static final String DROP_AND_ADD_NEW_PRIMARY_KEY
       = "    <dropPrimaryKey \n" + 
           "            constraintName=\"PRIMARY\"\n" + 
-          "            schemaName=\"bsis\"\n" + 
           "            tableName=\"["+TABLENAME+"]\"/>" + 
           "\n" + 
           "    <addPrimaryKey\n" + 
           "            columnNames=\"["+PRIMARYKEYNAME+"]\"\n" + 
-          "            constraintName=\"PRIMARY\"\n" + 
-          "            schemaName=\"bsis\"\n" + 
+          "            constraintName=\"PRIMARY\"\n" +  
           "            tableName=\"["+TABLENAME+"]\"/>";
 
     public static final String DROP_COLUMN 
-     = "    <dropColumn columnName=\"["+OLDCOLUMNNAME+"]\"\n" + 
-         "            schemaName=\"bsis\"\n" + 
+     = "    <dropColumn columnName=\"["+OLDCOLUMNNAME+"]\"\n" +  
          "            tableName=\"["+TABLENAME+"]\"/>";
 
     public static final String ADD_FOREIGN_KEY_CONSTRAINT 
@@ -133,8 +118,7 @@ public class UUIDChangesetGenerator {
     
     public static final String MODIFY_DATA_TYPE_TO_BINARY_16 
       = "    <modifyDataType columnName=\"["+COLUMNNAME+"]\"\n" + 
-        "            newDataType=\"BINARY(16)\"\n" + 
-        "            schemaName=\"bsis\"\n" + 
+        "            newDataType=\"BINARY(16)\"\n" +  
         "            tableName=\"["+TABLENAME+"]\"/>";
     
     public static final String DELETE_ORPHANED_AUDIT_RECORDS 
@@ -158,9 +142,7 @@ public class UUIDChangesetGenerator {
 
     String pkName = getPrimaryKeyName(tableName);
     if(pkName != null) {
-      
-      System.out.println(matchAndReplaceWithoutWarning(TEMPLATE.PRE_CONDITION, createMapWithTableAndFieldName(tableName, pkName)));
-      System.out.println();
+
       List<ForeignKeyReference> refs = getForeignKeyRefs(tableName, pkName);
 
       //drop all foreign key constraints
@@ -239,8 +221,8 @@ public class UUIDChangesetGenerator {
       System.out.println(matchAndReplace(TEMPLATE.REMOVE_AUTO_INCREMENT, createMapForAutoIncrementAndPrimaryKeyUpdates(tableName, pkName)));
       System.out.println();
       
-      System.out.println(matchAndReplace(TEMPLATE.DROP_AND_ADD_NEW_PRIMARY_KEY, createMapForAutoIncrementAndPrimaryKeyUpdates(tableName, pkName)));
-      System.out.println();
+      /*System.out.println(matchAndReplace(TEMPLATE.DROP_AND_ADD_NEW_PRIMARY_KEY, createMapForAutoIncrementAndPrimaryKeyUpdates(tableName, pkName)));
+      System.out.println();*/
       //##########################################################
 
 
