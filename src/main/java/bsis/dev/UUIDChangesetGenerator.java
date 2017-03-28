@@ -62,15 +62,15 @@ public class UUIDChangesetGenerator {
 
     public static final String SET_UUID_VALUES 
       = "    <sql>\n" + 
-        "      UPDATE ["+TABLENAME+"] \n" + 
+        "      UPDATE ["+TABLENAME+"] \n"+ 
         "      SET ["+FIELDTOUPDATE+"] = GENERATEBINARYUUID();\n" + 
         "    </sql>";
 
     public static final String UPDATE_FIELD_WITH_ANOTHER_FIELD 
       = "    <sql>\n" + 
-          "      UPDATE ["+TABLENAME+"] \n" + 
-          "      SET ["+FIELDTOUPDATE+"] = ["+UPDATEFIELDTOTHISFIELD+"];\n" + 
-          "    </sql>";
+        "      UPDATE ["+TABLENAME+"] \n" +
+        "      SET ["+FIELDTOUPDATE+"] = ["+UPDATEFIELDTOTHISFIELD+"];\n" + 
+        "    </sql>";
 
     public static final String UPDATE_AUD_TABLE_WITH_NEW_UUID
       =   "    <sql>\n" + 
@@ -90,36 +90,22 @@ public class UUIDChangesetGenerator {
 
     public static final String REMOVE_AUTO_INCREMENT
       =   "    <!-- Remove auto increment from the existing id column -->\n" + 
-          "    <modifyDataType\n" + 
-          "            columnName=\"["+PRIMARYKEYNAME+"]\"\n" + 
-          "            newDataType=\"BIGINT(20)\"\n" + 
-          "            tableName=\"["+TABLENAME+"]\"/>";
+          "    <modifyDataType columnName=\"["+PRIMARYKEYNAME+"]\" newDataType=\"BIGINT(20)\" tableName=\"["+TABLENAME+"]\"/>";
     
     public static final String DROP_AND_ADD_NEW_PRIMARY_KEY
-      = "    <dropPrimaryKey \n" + 
-          "            constraintName=\"PRIMARY\"\n" + 
-          "            tableName=\"["+TABLENAME+"]\"/>" + 
+      = "    <dropPrimaryKey constraintName=\"PRIMARY\" tableName=\"["+TABLENAME+"]\"/>" + 
           "\n" + 
-          "    <addPrimaryKey\n" + 
-          "            columnNames=\"["+PRIMARYKEYNAME+"]\"\n" + 
-          "            constraintName=\"PRIMARY\"\n" +  
-          "            tableName=\"["+TABLENAME+"]\"/>";
+          "    <addPrimaryKey columnNames=\"["+PRIMARYKEYNAME+"]\" constraintName=\"PRIMARY\" tableName=\"["+TABLENAME+"]\"/>";
 
     public static final String DROP_COLUMN 
-     = "    <dropColumn columnName=\"["+OLDCOLUMNNAME+"]\"\n" +  
-         "            tableName=\"["+TABLENAME+"]\"/>";
+     =   "    <dropColumn columnName=\"["+OLDCOLUMNNAME+"]\" tableName=\"["+TABLENAME+"]\"/>";
 
     public static final String ADD_FOREIGN_KEY_CONSTRAINT 
-     = "    <addForeignKeyConstraint baseColumnNames=\"["+BASECOLUMNTABLENAME+"]\"\n" + 
-         "            baseTableName=\"["+BASETABLENAME+"]\"\n" + 
-         "            constraintName=\"["+CONSTRAINTNAME+"]\"\n" + 
-         "            referencedColumnNames=\"["+PRIMARYKEYNAME+"]\"\n" + 
-         "            referencedTableName=\"["+TABLENAME+"]\"/>";
+     =   "    <addForeignKeyConstraint baseColumnNames=\"["+BASECOLUMNTABLENAME+"]\" baseTableName=\"["+BASETABLENAME+"]\" constraintName=\"["+CONSTRAINTNAME+"]\"\n" + 
+         "      referencedColumnNames=\"["+PRIMARYKEYNAME+"]\" referencedTableName=\"["+TABLENAME+"]\"/>";
     
     public static final String MODIFY_DATA_TYPE_TO_BINARY_16 
-      = "    <modifyDataType columnName=\"["+COLUMNNAME+"]\"\n" + 
-        "            newDataType=\"BINARY(16)\"\n" +  
-        "            tableName=\"["+TABLENAME+"]\"/>";
+      = "    <modifyDataType columnName=\"["+COLUMNNAME+"]\" newDataType=\"BINARY(16)\" tableName=\"["+TABLENAME+"]\"/>";
     
     public static final String DELETE_ORPHANED_AUDIT_RECORDS 
       =   "    <!-- Delete orphaned rows from Audit table. These values uuids cannot be found since the rows were deleted in the original table-->\n" + 
