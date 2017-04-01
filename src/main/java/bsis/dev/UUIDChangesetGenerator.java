@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -124,7 +125,18 @@ public class UUIDChangesetGenerator {
   
   final static Pattern pattern = Pattern.compile(regex);
   
+  private static List<String> tables = new ArrayList<String>();
+  private static Map<String, TableInfo> tableInfo = new HashMap<String, TableInfo>();
+  static {
+    initializeBSISTableInfo();
+  }
+
   public static void generateLiquibaseChangeSet(String tableName) throws Exception {
+
+    TableInfo mainTableInformation = tableInfo.get(tableName);
+    if(mainTableInformation == null) {
+      System.err.println("The able that you specified does not exist");
+    }
 
     String pkName = getPrimaryKeyName(tableName);
     if(pkName != null) {
@@ -144,10 +156,11 @@ public class UUIDChangesetGenerator {
       //add temp field for BIGINT id
       addAddColumnBasedOnMap(map);
 
-      map = createMapForTempFieldAdd(tableName, pkName, true);
-      //add temp field for BIGINT id
-      addAddColumnBasedOnMap(map);
-
+      if(mainTableInformation.hasAuditTable) {
+        map = createMapForTempFieldAdd(tableName, pkName, true);
+        //add temp field for BIGINT id
+        addAddColumnBasedOnMap(map);
+      }
       //add temporary fields for foreign keys
       String oldTableName = null;
       for(ForeignKeyReference ref : refs) {
@@ -169,16 +182,18 @@ public class UUIDChangesetGenerator {
 
       oldTableName = null;
       for(ForeignKeyReference ref : refs) {
-        map = createMapForTempFieldAdd(ref.tableName, ref.columnName, true);
-        if(ref.tableName != null && !ref.tableName.equals(oldTableName)) {
-          if(oldTableName != null) {
-            System.out.println(TEMPLATE.ADD_NEW_COLUMN_CLOSE);
-            System.out.println();
+        if(tableInfo.get(ref.tableName).hasAuditTable) {
+          map = createMapForTempFieldAdd(ref.tableName, ref.columnName, true);
+          if(ref.tableName != null && !ref.tableName.equals(oldTableName)) {
+            if(oldTableName != null) {
+              System.out.println(TEMPLATE.ADD_NEW_COLUMN_CLOSE);
+              System.out.println();
+            }
+            System.out.println(matchAndReplace(TEMPLATE.ADD_NEW_COLUMN_OPEN, map));
           }
-          System.out.println(matchAndReplace(TEMPLATE.ADD_NEW_COLUMN_OPEN, map));
+          System.out.println(matchAndReplace(TEMPLATE.ADD_NEW_COLUMN_LINE, map));
+          oldTableName = ref.tableName;
         }
-        System.out.println(matchAndReplace(TEMPLATE.ADD_NEW_COLUMN_LINE, map));
-        oldTableName = ref.tableName;
       }
       if(oldTableName != null) {
         System.out.println(TEMPLATE.ADD_NEW_COLUMN_CLOSE);
@@ -189,17 +204,21 @@ public class UUIDChangesetGenerator {
       System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(tableName, pkName)));
       System.out.println();
       
-      System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(tableName, pkName, true)));
-      System.out.println();
-
-      for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(ref.tableName, ref.columnName, true)));
+      if(mainTableInformation.hasAuditTable) {
+        System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(tableName, pkName, true)));
         System.out.println();
       }
 
       for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(ref.tableName, ref.columnName)));
-        System.out.println();
+        if(tableInfo.get(ref.tableName).hasAuditTable) {
+          System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(ref.tableName, ref.columnName, true)));
+          System.out.println();
+        }
+      }
+
+      for(ForeignKeyReference ref : refs) {
+          System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(ref.tableName, ref.columnName)));
+          System.out.println();
       }
       //##########################################################
 
@@ -217,16 +236,20 @@ public class UUIDChangesetGenerator {
       System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapWithTableAndFieldName(tableName, pkName)));
       System.out.println();
 
-      System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(tableName, pkName, true)));
-      System.out.println();
-      
+      if(mainTableInformation.hasAuditTable) {
+        System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(tableName, pkName, true)));
+        System.out.println();
+      }
+
       for(ForeignKeyReference ref : refs) {
         System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapWithTableAndFieldName(ref.tableName, ref.columnName)));
       }
       System.out.println();
     
       for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(ref.tableName, ref.columnName, true)));
+        if(tableInfo.get(ref.tableName).hasAuditTable) {
+          System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(ref.tableName, ref.columnName, true)));
+        }
       }
       System.out.println();
 
@@ -245,12 +268,16 @@ public class UUIDChangesetGenerator {
       System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(tableName, pkName)));
       System.out.println();
 
-      System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(tableName, pkName, true)));
-      System.out.println();
+      if(mainTableInformation.hasAuditTable) {
+        System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(tableName, pkName, true)));
+        System.out.println();
+      }
 
       for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(ref.tableName, ref.columnName, true)));
-        System.out.println();
+        if(tableInfo.get(ref.tableName).hasAuditTable) {
+          System.out.println(matchAndReplace(TEMPLATE.ADD_VIRTUAL_COLUMN, createMapForAddingVirtualColumn(ref.tableName, ref.columnName, true)));
+          System.out.println();
+        }
       }
 
       for(ForeignKeyReference ref : refs) {
@@ -262,14 +289,18 @@ public class UUIDChangesetGenerator {
 
 
       //set aud value to new uuid value##########################
-      System.out.println(matchAndReplace(TEMPLATE.UPDATE_AUD_TABLE_WITH_NEW_UUID, createMapForUpdateAudTableWithNewUUIDIDValue(tableName, pkName)));
+      if(mainTableInformation.hasAuditTable) {
+        System.out.println(matchAndReplace(TEMPLATE.UPDATE_AUD_TABLE_WITH_NEW_UUID, createMapForUpdateAudTableWithNewUUIDIDValue(tableName, pkName)));
+      }
       //#########################################################
 
 
 
       //set aud value to new uuid value##########################
-      System.out.println();
-      System.out.println(matchAndReplace(TEMPLATE.DELETE_ORPHANED_AUDIT_RECORDS, createMapForDeletingOrphanedRows(tableName, pkName)));
+      if(mainTableInformation.hasAuditTable) {
+        System.out.println();
+        System.out.println(matchAndReplace(TEMPLATE.DELETE_ORPHANED_AUDIT_RECORDS, createMapForDeletingOrphanedRows(tableName, pkName)));
+      }
       //#########################################################
 
 
@@ -282,15 +313,19 @@ public class UUIDChangesetGenerator {
       }
       
       for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.SET_FOREIGN_KEY_REF_VALUE, createMapForeignKeyRefUpdate(tableName, ref, pkName, true)));
-        System.out.println();
+        if(tableInfo.get(ref.tableName).hasAuditTable) {
+          System.out.println(matchAndReplace(TEMPLATE.SET_FOREIGN_KEY_REF_VALUE, createMapForeignKeyRefUpdate(tableName, ref, pkName, true)));
+          System.out.println();
+        }
       }
       //#########################################################
 
       //Drop temporary columns###################################
       System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapForDroppingPK(tableName, false, pkName)));
-      System.out.println();
-      System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapForDroppingPK(tableName, true, pkName)));
+      if(mainTableInformation.hasAuditTable) {
+        System.out.println();
+        System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapForDroppingPK(tableName, true, pkName)));
+      }
 
       System.out.println();
       for(ForeignKeyReference ref : refs) {
@@ -299,8 +334,10 @@ public class UUIDChangesetGenerator {
       }
 
       for(ForeignKeyReference ref : refs) {
-        System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapDroppingColumn(ref, true)));
-        System.out.println();
+        if(tableInfo.get(ref.tableName).hasAuditTable) {
+          System.out.println(matchAndReplace(TEMPLATE.DROP_COLUMN, createMapDroppingColumn(ref, true)));
+          System.out.println();
+        }
       }
       //#########################################################
 
@@ -441,18 +478,6 @@ public class UUIDChangesetGenerator {
     return createMapForTempFieldAdd(tableName, fieldName, false);
   }
 
-  private static Map<String,String> createMapForFieldRename(String tableName, String fieldName) {
-    return createMapForFieldRename(tableName, fieldName, false);
-  }
-
-  private static Map<String,String> createMapForFieldRename(String tableName, String fieldName, boolean audTable) {
-    Map<String,String> map = new HashMap<String, String>();
-    putTableNameIntoMap(tableName, audTable, map);
-    map.put(OLDCOLUMNNAME, fieldName);
-    map.put(NEWCOLUMNNAME, fieldName+"_temp");
-    return map;
-  }
-
   private static Map<String, String> convertFKRToMap(ForeignKeyReference fkr) {
     return convertFKRToMap(fkr, false);
   }
@@ -559,6 +584,10 @@ public class UUIDChangesetGenerator {
         ResultSet rs = ps.executeQuery();
         try {
           while(rs.next()) {
+            if (rs.getString("TABLE_NAME").endsWith("_AUD")) {
+              System.err.println("Audit table has a foreign key reference, this is most likely not correct. Please contact someone!!! :)");
+              System.exit(0);
+            }
             ForeignKeyReference fkr = new ForeignKeyReference(
                 rs.getString("CONSTRAINT_NAME"), rs.getString("TABLE_NAME"), rs.getString("COLUMN_NAME"));
             refs.add(fkr);
@@ -575,6 +604,46 @@ public class UUIDChangesetGenerator {
       Exception e = new Exception("Could not retrieve Primary Key of table: " + tableName);
       e.initCause(sqle);
       throw e;
+    }
+  }
+
+  private static void initializeBSISTableInfo() {
+    final String sql = "SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = 'bsis'";
+      
+    try {
+      Connection conn = getConnectionToBSISDatabase();
+  
+      PreparedStatement ps = conn.prepareStatement(sql);
+      try {
+        ResultSet rs = ps.executeQuery();
+        try {
+          while(rs.next()) {
+            tables.add(rs.getString(1));
+          }
+        } finally {
+          rs.close();
+        }
+      } finally {
+        ps.close();conn.close();
+      }
+    }
+    catch (SQLException sqle) {
+      System.err.println("Could not initialize table Info: " + sqle.getMessage());
+      System.exit(0);
+    }
+    
+    Collections.sort(tables);
+    for(String table : tables) {
+      if(!table.endsWith("_AUD")) {
+        boolean tableHasAuditTable = false;
+        for (String tablesForAuditCheck : tables) {
+          if(tablesForAuditCheck.startsWith(table) && tablesForAuditCheck.endsWith("_AUD")) {
+            tableHasAuditTable = true;
+            break;
+          }
+        }
+        tableInfo.put(table, new TableInfo(table, tableHasAuditTable));
+      }
     }
   }
 
@@ -595,8 +664,25 @@ public class UUIDChangesetGenerator {
       this.columnName = columnName;
     }
     
+    @Override
     public String toString() {
-      return "FKR: constraintName = " +constraintName + "; tableName=" + tableName+ "; columnName="+columnName;
+      return "ForeignKeyReference [constraintName=" + constraintName + ", tableName=" + tableName + ", columnName="
+          + columnName + "]";
+    }
+  }
+  
+  static class TableInfo {
+    public String tableName;
+    public boolean hasAuditTable;
+
+    public TableInfo(String tableName, boolean hasAuditTable) {
+      this.tableName = tableName;
+      this.hasAuditTable = hasAuditTable;
+    }
+    
+    @Override
+    public String toString() {
+      return "TableInfo [tableName=" + tableName + ", hasAuditTable=" + hasAuditTable + "]";
     }
   }
 }
