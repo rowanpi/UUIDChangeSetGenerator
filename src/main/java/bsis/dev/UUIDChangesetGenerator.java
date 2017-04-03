@@ -584,7 +584,7 @@ public class UUIDChangesetGenerator {
         ResultSet rs = ps.executeQuery();
         try {
           while(rs.next()) {
-            if (rs.getString("TABLE_NAME").endsWith("_AUD")) {
+            if (rs.getString("TABLE_NAME").equals(tableName+"_AUD")) {
               System.err.println("Audit table has a foreign key reference, this is most likely not correct. Please contact someone!!! :)");
               System.exit(0);
             }
@@ -643,6 +643,8 @@ public class UUIDChangesetGenerator {
           }
         }
         tableInfo.put(table, new TableInfo(table, tableHasAuditTable));
+      } else {
+        tableInfo.put(table, new TableInfo(table, false));
       }
     }
   }
