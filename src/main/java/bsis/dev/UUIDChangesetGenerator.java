@@ -584,12 +584,14 @@ public class UUIDChangesetGenerator {
         ResultSet rs = ps.executeQuery();
         try {
           while(rs.next()) {
-            if (rs.getString("TABLE_NAME").equals(tableName+"_AUD")) {
-              System.err.println("Audit table has a foreign key reference, this is most likely not correct. Please contact someone!!! :)");
+            String table = rs.getString("TABLE_NAME");
+            String constraint = rs.getString("CONSTRAINT_NAME"); 
+            if (table.endsWith("_AUD")) {
+              System.err.println("Audit table: " + table + " has a foreign key constraint: " + constraint + ", this is most likely not correct. Please contact someone!!! :)");
               System.exit(0);
             }
             ForeignKeyReference fkr = new ForeignKeyReference(
-                rs.getString("CONSTRAINT_NAME"), rs.getString("TABLE_NAME"), rs.getString("COLUMN_NAME"));
+                constraint, table, rs.getString("COLUMN_NAME"));
             refs.add(fkr);
           }
         } finally {
