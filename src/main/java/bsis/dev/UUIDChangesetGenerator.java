@@ -21,6 +21,7 @@ public class UUIDChangesetGenerator {
   private static final String OLDCOLUMNNAME = "OLDCOLUMNNAME";
   private static final String CONSTRAINTNAME = "CONSTRAINTNAME";
   private static final String TABLENAME = "TABLENAME";
+  private static final String TABLENAME_LOWERCASE = "TABLENAME_LOWERCASE";
   private static final String AFTERCOLUMNNAME = "AFTERCOLUMNNAME";
   private static final String UUIDCOLUMNNAME = "UUIDCOLUMNNAME";
   private static final String JOINEDTABLENAME = "JOINEDTABLENAME";
@@ -104,10 +105,10 @@ public class UUIDChangesetGenerator {
     public static final String ADD_FOREIGN_KEY_CONSTRAINT 
      =   "    <addForeignKeyConstraint baseColumnNames=\"["+BASECOLUMNTABLENAME+"]\" baseTableName=\"["+BASETABLENAME+"]\" constraintName=\"["+CONSTRAINTNAME+"]\"\n" + 
          "      referencedColumnNames=\"["+PRIMARYKEYNAME+"]\" referencedTableName=\"["+TABLENAME+"]\"/>";
-    
+
     public static final String MODIFY_DATA_TYPE_TO_BINARY_16 
       = "    <modifyDataType columnName=\"["+COLUMNNAME+"]\" newDataType=\"BINARY(16)\" tableName=\"["+TABLENAME+"]\"/>";
-    
+
     public static final String DELETE_ORPHANED_AUDIT_RECORDS 
       =   "    <!-- Delete orphaned rows from Audit table. These values uuids cannot be found since the rows were deleted in the original table-->\n" + 
           "    <sql>\n" +
@@ -116,7 +117,12 @@ public class UUIDChangesetGenerator {
           "        LEFT JOIN ["+TABLENAME+"] AS joinTable ON (["+TABLENAME_AUD+"].["+PRIMARYKEYNAME+"] = joinTable.["+PRIMARYKEYNAME+"])\n" + 
           "      WHERE joinTable.["+PRIMARYKEYNAME+"] IS null\n" +
           "    </sql>";
-  
+
+    public static final String CREATE_TEMP_INDEX
+      =   "    <!-- Create Index on temporary id_temp field to make updates referencing it more efficient. -->\n" +
+          "    <createIndex indexName=\"["+TABLENAME_LOWERCASE+"]_["+COLUMNNAME+"]_index\" tableName=\"["+TABLENAME+"]\" unique=\"true\">\n" + 
+          "        <column name=\"["+COLUMNNAME+"]\" type=\"BIGINT\"/>\n" + 
+          "    </createIndex>";
   }
   private static String userName = "root";
   private static String password = "root";
@@ -203,7 +209,13 @@ public class UUIDChangesetGenerator {
       //update temp fields with original keys######################
       System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(tableName, pkName)));
       System.out.println();
-      
+
+      //Create Temp Index on primary Key temp field######################
+      Map<String, String> indexMap = createMapWithTableAndFieldName(tableName, pkName + "_temp");
+      indexMap.put(TABLENAME_LOWERCASE, indexMap.get(TABLENAME).toLowerCase());
+      System.out.println(matchAndReplace(TEMPLATE.CREATE_TEMP_INDEX, indexMap));
+      System.out.println();
+
       if(mainTableInformation.hasAuditTable) {
         System.out.println(matchAndReplace(TEMPLATE.UPDATE_FIELD_WITH_ANOTHER_FIELD, createMapForUpdateFieldWithAnotherField(tableName, pkName, true)));
         System.out.println();
@@ -237,7 +249,7 @@ public class UUIDChangesetGenerator {
       System.out.println();
 
       if(mainTableInformation.hasAuditTable) {
-        System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(tableName, pkName, true)));
+        System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapWithTableAndFieldName(tableName, pkName, true)));
         System.out.println();
       }
 
@@ -248,7 +260,7 @@ public class UUIDChangesetGenerator {
     
       for(ForeignKeyReference ref : refs) {
         if(tableInfo.get(ref.tableName).hasAuditTable) {
-          System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapForColumnModify(ref.tableName, ref.columnName, true)));
+          System.out.println(matchAndReplace(TEMPLATE.MODIFY_DATA_TYPE_TO_BINARY_16, createMapWithTableAndFieldName(ref.tableName, ref.columnName, true)));
         }
       }
       System.out.println();
@@ -348,7 +360,7 @@ public class UUIDChangesetGenerator {
     }
   }
   
-  private static Map<String,String> createMapForColumnModify(String tableName, String fieldName, boolean audTable) {
+  private static Map<String,String> createMapWithTableAndFieldName(String tableName, String fieldName, boolean audTable) {
     Map<String,String> map = new HashMap<String, String>();
     putTableNameIntoMap(tableName, audTable, map);
     map.put(COLUMNNAME, fieldName);
@@ -356,7 +368,7 @@ public class UUIDChangesetGenerator {
   }
   
   private static Map<String,String> createMapWithTableAndFieldName(String tableName, String fieldName) {
-    return createMapForColumnModify(tableName, fieldName, false);
+    return createMapWithTableAndFieldName(tableName, fieldName, false);
   }
 
   private static Map<String,String> createMapForUpdateFieldWithAnotherField(String tableName, String fieldName, boolean audTable) {
