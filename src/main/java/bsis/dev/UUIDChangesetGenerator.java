@@ -126,7 +126,8 @@ public class UUIDChangesetGenerator {
   }
   private static String userName = "root";
   private static String password = "root";
-  
+  private static boolean forceGenerate = false;
+
   final static String regex = "\\[[^\\]]*\\]";
   
   final static Pattern pattern = Pattern.compile(regex);
@@ -535,15 +536,21 @@ public class UUIDChangesetGenerator {
   }
   
   public static void main(String[] args) throws Exception {
-    if (args.length < 1 || args.length > 3) {
-      throw new Exception("Valid parameters are tableName [dbUserName] [dbPassword]");
+    if (args.length < 1 || args.length > 4) {
+      throw new Exception("Valid parameters are tableName [dbUserName] [dbPassword] [force]. dbUserName and dbPassword is mandatory if force is specified.");
     }
     
     if(args.length == 2) {
-      throw new Exception("Valid parameters are tableName [dbUserName] [dbPassword]. If dbUserName is set then password has to be provided");
+      throw new Exception("Valid parameters are tableName [dbUserName] [dbPassword] [force]. If dbUserName is set then password has to be provided. dbUserName and dbPassword is mandatory if force is specified.");
     } else if(args.length == 3) {
       userName = args[1];
       password = args[2];
+    } else if(args.length == 4) {
+      userName = args[1];
+      password = args[2];
+      if("force".equals(args[3])) {
+        forceGenerate = true;
+      }
     }
     generateLiquibaseChangeSet(args[0]);
   }
@@ -598,7 +605,7 @@ public class UUIDChangesetGenerator {
           while(rs.next()) {
             String table = rs.getString("TABLE_NAME");
             String constraint = rs.getString("CONSTRAINT_NAME"); 
-            if (table.endsWith("_AUD")) {
+            if (!forceGenerate && table.endsWith("_AUD")) {
               System.err.println("Audit table: " + table + " has a foreign key constraint: " + constraint + ", this is most likely not correct. Please contact someone!!! :)");
               System.exit(0);
             }
