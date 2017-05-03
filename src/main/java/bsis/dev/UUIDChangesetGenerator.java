@@ -65,7 +65,8 @@ public class UUIDChangesetGenerator {
     public static final String SET_UUID_VALUES 
       = "    <sql>\n" + 
         "      UPDATE ["+TABLENAME+"] \n"+ 
-        "      SET ["+FIELDTOUPDATE+"] = GENERATEBINARYUUID();\n" + 
+        "      SET ["+FIELDTOUPDATE+"] = GENERATEBINARYUUID()\n" + 
+        "      ORDER BY id_temp;\n" +
         "    </sql>";
 
     public static final String UPDATE_FIELD_WITH_ANOTHER_FIELD 
